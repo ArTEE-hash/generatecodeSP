@@ -1,0 +1,310 @@
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบรหัสโครงการ - Final</title>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Kanit', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #e3f2fd, #ede7f6);
+    }
+    header {
+      background: #283593;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 600;
+      border-bottom: 5px solid #1a237e;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      background: #3949ab;
+    }
+    nav button {
+      flex: 1;
+      padding: 14px;
+      cursor: pointer;
+      border: none;
+      background: #3949ab;
+      color: white;
+      font-size: 16px;
+      transition: 0.3s;
+    }
+    nav button:hover, nav button.active {
+      background: #1a237e;
+    }
+    .section {
+      display: none;
+      padding: 20px;
+      max-width: 1100px;
+      margin: auto;
+    }
+    .active-section {
+      display: block;
+    }
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: 600;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #3949ab;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #1a237e;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      margin-top: 15px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #283593;
+      color: white;
+    }
+    canvas {
+      margin: 20px 0;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+  <header>📊 ระบบรหัสโครงการและสถิติการใช้งาน</header>
+
+  <nav>
+    <button class="tab active" onclick="showSection('formSection', this)">📝 แบบฟอร์ม</button>
+    <button class="tab" onclick="showSection('logSection', this)">📂 Log</button>
+    <button class="tab" onclick="showSection('graphSection', this)">📈 กราฟ</button>
+  </nav>
+
+  <!-- ============ SECTION 1: FORM ============ -->
+  <div id="formSection" class="section active-section">
+    <h2>สร้างรหัสโครงการใหม่</h2>
+    <form id="projectForm">
+      <label>ชื่อหน่วยงาน</label>
+      <input type="text" id="org" required>
+
+      <label>ชื่อโครงการ</label>
+      <input type="text" id="projectName" required>
+
+      <button type="submit">บันทึกโครงการ</button>
+    </form>
+    <p id="result"></p>
+  </div>
+
+  <!-- ============ SECTION 2: LOG ============ -->
+  <div id="logSection" class="section">
+    <h2>บันทึกการใช้งาน (Logs)</h2>
+    <table id="logTable">
+      <thead>
+        <tr>
+          <th>เวลา</th>
+          <th>ชื่อผู้ใช้</th>
+          <th>หน่วยงาน</th>
+          <th>กิจกรรม</th>
+          <th>รายละเอียด</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button onclick="exportCSV()">Export CSV</button>
+    <button onclick="exportExcel()">Export Excel</button>
+  </div>
+
+  <!-- ============ SECTION 3: GRAPH ============ -->
+  <div id="graphSection" class="section">
+    <h2>จำนวนโครงการที่สร้างตามหน่วยงาน</h2>
+    <canvas id="orgChart" width="500" height="250"></canvas>
+
+    <h2>สัดส่วนกิจกรรมการใช้งาน</h2>
+    <canvas id="actionChart" width="500" height="250"></canvas>
+  </div>
+
+  <script>
+    // ====== SWITCH TAB ======
+    function showSection(sectionId, el) {
+      document.querySelectorAll(".section").forEach(s => s.classList.remove("active-section"));
+      document.getElementById(sectionId).classList.add("active-section");
+
+      document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+      el.classList.add("active");
+    }
+
+    // ====== FORM & LOG ======
+    const form = document.getElementById("projectForm");
+    const result = document.getElementById("result");
+    const logTableBody = document.querySelector("#logTable tbody");
+
+    function saveLog(action, details) {
+      let logs = JSON.parse(localStorage.getItem("logs") || "[]");
+      let log = {
+        time: new Date().toLocaleString(),
+        user: "User01",
+        org: document.getElementById("org").value || "-",
+        action: action,
+        details: details
+      };
+      logs.push(log);
+      localStorage.setItem("logs", JSON.stringify(logs));
+      renderLogs();
+      renderCharts();
+    }
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      let org = document.getElementById("org").value;
+      let project = document.getElementById("projectName").value;
+      let code = "PRJ-" + Math.floor(Math.random() * 10000);
+
+      result.textContent = `✅ สร้างโครงการแล้ว: [${code}] ${project}`;
+      saveLog("Create Project", `${code} - ${project}`);
+      form.reset();
+    });
+
+    function renderLogs() {
+      let logs = JSON.parse(localStorage.getItem("logs") || "[]");
+      logTableBody.innerHTML = "";
+      logs.forEach(log => {
+        let row = `<tr>
+          <td>${log.time}</td>
+          <td>${log.user}</td>
+          <td>${log.org}</td>
+          <td>${log.action}</td>
+          <td>${log.details}</td>
+        </tr>`;
+        logTableBody.innerHTML += row;
+      });
+    }
+
+    function exportCSV() {
+      let logs = JSON.parse(localStorage.getItem("logs") || "[]");
+      let csv = "เวลา,ผู้ใช้,หน่วยงาน,กิจกรรม,รายละเอียด\n";
+      logs.forEach(l => {
+        csv += `${l.time},${l.user},${l.org},${l.action},${l.details}\n`;
+      });
+      let blob = new Blob([csv], { type: "text/csv" });
+      let link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "logs.csv";
+      link.click();
+    }
+
+    function exportExcel() {
+      let logs = JSON.parse(localStorage.getItem("logs") || "[]");
+      let table = [["เวลา","ผู้ใช้","หน่วยงาน","กิจกรรม","รายละเอียด"]];
+      logs.forEach(l => {
+        table.push([l.time, l.user, l.org, l.action, l.details]);
+      });
+      let csv = table.map(r => r.join(",")).join("\n");
+      let blob = new Blob([csv], { type: "application/vnd.ms-excel" });
+      let link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "logs.xls";
+      link.click();
+    }
+
+    // ====== GRAPH ======
+    let orgChart, actionChart;
+
+    function renderCharts() {
+      let logs = JSON.parse(localStorage.getItem("logs") || "[]");
+
+      // Count projects per org
+      let orgCount = {};
+      logs.forEach(l => {
+        if (l.action === "Create Project") {
+          orgCount[l.org] = (orgCount[l.org] || 0) + 1;
+        }
+      });
+
+      let orgLabels = Object.keys(orgCount);
+      let orgData = Object.values(orgCount);
+
+      if (orgChart) orgChart.destroy();
+      orgChart = new Chart(document.getElementById("orgChart"), {
+        type: "bar",
+        data: {
+          labels: orgLabels,
+          datasets: [{
+            label: "จำนวนโครงการ",
+            data: orgData,
+            backgroundColor: "#3949ab"
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: "จำนวนโครงการตามหน่วยงาน" }
+          },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      // Count actions
+      let actionCount = {};
+      logs.forEach(l => {
+        actionCount[l.action] = (actionCount[l.action] || 0) + 1;
+      });
+
+      let actionLabels = Object.keys(actionCount);
+      let actionData = Object.values(actionCount);
+
+      if (actionChart) actionChart.destroy();
+      actionChart = new Chart(document.getElementById("actionChart"), {
+        type: "pie",
+        data: {
+          labels: actionLabels,
+          datasets: [{
+            data: actionData,
+            backgroundColor: ["#4caf50", "#ff9800", "#f44336", "#2196f3"]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: { display: true, text: "สัดส่วนกิจกรรมทั้งหมด" }
+          }
+        }
+      });
+    }
+
+    // Init
+    renderLogs();
+    renderCharts();
+  </script>
+</body>
+</html>
